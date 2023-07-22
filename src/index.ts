@@ -1,4 +1,4 @@
-import * as zksync from "zksync";
+//import * as zksync from "zksync";
 import TelegramBot from "node-telegram-bot-api";
 import dotenv from "dotenv";
 dotenv.config();
@@ -15,7 +15,7 @@ if (!groupID) {
 }
 
 async function init() {
-  const syncProvider = await zksync.getDefaultProvider("goerli");
+  //const syncProvider = await zksync.getDefaultProvider("goerli");
 
   // Create a bot that uses 'polling' to fetch new updates
   const bot = new TelegramBot(token as string, { polling: true });
