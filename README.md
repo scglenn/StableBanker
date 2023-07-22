@@ -14,6 +14,18 @@ To develop all apps and packages, run the following command:
 pnpm turbo dev
 ```
 
+## Docker Build
+
+```
+docker build -t stablebanker .
+```
+
+## Docker Run
+
+```
+docker run -p 3000:3000 -d stablebanker
+```
+
 ## Useful Links
 
 Learn more about the power of Turborepo:
