@@ -54,24 +54,6 @@ async function init() {
 
   // estimate gas price
   const gasPrice = await zksyncProvider.getGasPrice();
-
-  // estimate gas limit
-  // {
-  //   inputs: [
-  //     { internalType: "uint256", name: "amountIn", type: "uint256" },
-  //     { internalType: "uint256", name: "amountOutMin", type: "uint256" },
-  //     { internalType: "address[]", name: "poolsPath", type: "address[]" },
-  //     { internalType: "contract IERC20[]", name: "path", type: "address[]" },
-  //     { internalType: "address", name: "to", type: "address" },
-  //     { internalType: "uint256", name: "deadline", type: "uint256" },
-  //   ],
-  //   name: "swapExactTokensForETH",
-  //   outputs: [
-  //     { internalType: "uint256[]", name: "amounts", type: "uint256[]" },
-  //   ],
-  //   stateMutability: "nonpayable",
-  //   type: "function",
-  // },
   const currentEthBlock = await ethProvider.getBlock("latest");
   const timestamp = currentEthBlock.timestamp;
   const gasLimitEstimate = await contract.estimateGas.swapExactTokensForETH(
@@ -85,17 +67,6 @@ async function init() {
     "0x05bfb506cbd63bb468c903d53dfef1c72f47d974", //TODO: Needs to be the address of the user
     timestamp + 1000
   );
-  // const gasLimitEstimate = await signer.estimateGas({
-  //   to: KYBER_ROUTER_ADDRESS,
-  //   data: contract.interface.encodeFunctionData("swapExactTokensForETH", [
-  //     0,
-  //     0,
-  //     [ETH_USDC_POOL_ADDRESS],
-  //     [USDC_ADDRESS, ETH_ADDRESS],
-  //     "0x05bfb506cbd63bb468c903d53dfef1c72f47d974", //TODO: Needs to be the address of the user
-  //     currentEthBlockNumber + 100,
-  //   ]),
-  // });
 
   // the total gas cost is gasPrice * gasLimit
   const totalGasCost = gasPrice.mul(gasLimitEstimate);
