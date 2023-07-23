@@ -20,6 +20,6 @@
       }
     ]
   },
-  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts", "hardhat.config.js", "deploy/stableBankerPaymaster.js"],
   "exclude": ["node_modules"]
 }
