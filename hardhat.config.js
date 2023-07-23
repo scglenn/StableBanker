@@ -8,20 +8,20 @@ require("@nomiclabs/hardhat-etherscan");
 const zkSyncTestnet =
   process.env.NODE_ENV == "test"
     ? {
-        url: "http://localhost:3050",
-        ethNetwork: "http://localhost:8545",
-        zksync: true,
-        // Verification endpoint for Goerli
-        verifyURL:
-          "https://zksync2-testnet-explorer.zksync.dev/contract_verification",
-      }
-    : {
         url: "https://zksync2-testnet.zksync.dev",
         ethNetwork: "goerli",
         zksync: true,
         // Verification endpoint for Goerli
         verifyURL:
           "https://zksync2-testnet-explorer.zksync.dev/contract_verification",
+      }
+    : {
+        url: "https://mainnet.era.zksync.io",
+        ethNetwork: "mainnet",
+        zksync: true,
+        // Verification endpoint for Goerli
+        verifyURL:
+          "https://mainnet.era.zksync.io/contract_verification",
       };
 
 const config = {

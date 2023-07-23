@@ -2444,6 +2444,12 @@ packages:
       wrap-ansi: 7.0.0
     dev: true
 
+  /coingecko-api-v3@0.0.26:
+    resolution: {integrity: sha512-c3JeSLJXclc7pDsHPRpBJhUcqOO8SMMTHE1bzWR4+2Eafj530MYWV14JsI9p/wIf+aYQUARNmMstT1NS3QTpcQ==}
+    dependencies:
+      https: 1.0.0
+    dev: false
+
   /color-convert@1.9.3:
     resolution: {integrity: sha512-QfAUtd+vFdAtFQcC8CCyYt1fYWxSqAiK2cSD6zDB8N3cpsEBAvRxp9zOGg6G/SHHJYAT88/az/IuDGALsNVbGg==}
     dependencies:
@@ -3943,6 +3949,10 @@ packages:
     transitivePeerDependencies:
       - supports-color
     dev: true
+
+  /https@1.0.0:
+    resolution: {integrity: sha512-4EC57ddXrkaF0x83Oj8sM6SLQHAWXw90Skqu2M4AEWENZ3F02dFJE/GARA8igO79tcgYqGrD7ae4f5L3um2lgg==}
+    dev: false
 
   /human-signals@2.1.0:
     resolution: {integrity: sha512-B4FFZ6q/T2jhhksgkbEW3HBvWIfDW85snkQgawt07S7J5QXTk6BkNV+0yAeZrM5QpMAdYlocGoljn0sJ/WQkFw==}

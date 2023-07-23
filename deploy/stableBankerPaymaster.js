@@ -1,23 +1,22 @@
-import { Provider, Wallet } from "zksync-web3";
-import * as ethers from "ethers";
-import { HardhatRuntimeEnvironment } from "hardhat/types";
-import { Deployer } from "@matterlabs/hardhat-zksync-deploy";
+const { Provider, Wallet } = require("zksync-web3");
+const ethers = require("ethers");
+const { HardhatRuntimeEnvironment } = require("hardhat/types");
+const { Deployer } = require("@matterlabs/hardhat-zksync-deploy");
 
 // load env file
-import dotenv from "dotenv";
+const dotenv = require("dotenv");
 dotenv.config();
 
 // load wallet private key from env file
 const PRIVATE_KEY = process.env.WALLET_PRIVATE_KEY || "";
 
-const ROUTER_ADDRESS = "0x937f4f2FF1889b79dAa08debfCA5C237a07A5208"
+const ROUTER_ADDRESS = "0x937f4f2FF1889b79dAa08debfCA5C237a07A5208" // kyber mainnet
 
 if (!PRIVATE_KEY)
   throw "⛔️ Private key not detected! Add it to the .env file!";
 
-export default async function (hre: HardhatRuntimeEnvironment) {
+module.exports = async function (hre) {
   console.log(`Running deploy script for the ERC20fixedPaymaster contract...`);
-  const provider = new Provider("https://testnet.era.zksync.dev");
   // The wallet that will deploy the token and the paymaster
   // It is assumed that this wallet already has sufficient funds on zkSync
   const wallet = new Wallet(PRIVATE_KEY);
@@ -43,14 +42,11 @@ export default async function (hre: HardhatRuntimeEnvironment) {
     })
   ).wait();
 
-  let paymasterBalance = await provider.getBalance(paymaster.address);
-  console.log(`Paymaster ETH balance is now ${paymasterBalance.toString()}`);
-
   // Verify contract programmatically
   //
   // Contract MUST be fully qualified name (e.g. path/sourceName:contractName)
   const contractFullyQualifedName =
-    "contracts/paymasters/ERC20fixedPaymaster.sol:ERC20fixedPaymaster";
+    "contracts/paymasters/StableBankerPaymaster.sol:StableBankerPaymaster";
   const verificationId = await hre.run("verify:verify", {
     address: paymaster.address,
     contract: contractFullyQualifedName,
