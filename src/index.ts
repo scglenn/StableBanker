@@ -8,6 +8,8 @@ import {
   KYBER_ROUTER_ADDRESS,
 } from "../constants/kyber-addresses";
 import contractAbi from "../abi/DmmPool";
+import erc20Abi from "../abi/erc20";
+
 import {
   USDC_ADDRESS,
   WETH_ADDRESS,
@@ -41,16 +43,22 @@ async function init() {
   );
 
   const signer = new ethers.Wallet(
-    process.env.PRIVATE_KEY as string,
+    process.env.WALLET_PRIVATE_KEY as string,
     zksyncProvider
   );
 
   // create the contract instance
-  const contract = new ethers.Contract(
+  const router = new ethers.Contract(
     KYBER_ROUTER_ADDRESS,
     contractAbi,
     signer
   );
+
+  const usdcContract = new ethers.Contract(
+    USDC_ADDRESS,
+    erc20Abi,
+    signer
+  )
 
   const bot = new TelegramBot(token as string, { polling: true });
 
@@ -59,12 +67,27 @@ async function init() {
     const gasPrice = await zksyncProvider.getGasPrice();
     const currentEthBlock = await ethProvider.getBlock("latest");
     const timestamp = currentEthBlock.timestamp;
-    const gasLimitEstimate = await contract.estimateGas.swapExactTokensForETH(
-      100 * 10 ** 6, //6 decimals: 100 USDC
-      1,
+    const usdcBal = await usdcContract.balanceOf(signer.address);
+    const allowance = await usdcContract.allowance(signer.address, KYBER_ROUTER_ADDRESS);
+
+    if(allowance < usdcBal) {
+      await usdcContract.approve(KYBER_ROUTER_ADDRESS, usdcBal * 100); // much approve
+    }
+
+    const guestEstimate = await router.getAmountsOut(
+      usdcBal,
+      [ETH_USDC_POOL_ADDRESS],
+      [USDC_ADDRESS, WETH_ADDRESS]
+    );
+
+    console.log("guestEstimate", guestEstimate);
+    
+    const gasLimitEstimate = await router.estimateGas.swapExactTokensForETH(
+      usdcBal, //6 decimals: 100 USDC
+      guestEstimate[1],
       [ETH_USDC_POOL_ADDRESS],
       [USDC_ADDRESS, WETH_ADDRESS],
-      "0x05bfb506cbd63bb468c903d53dfef1c72f47d974", //TODO: Needs to be the address of the user
+      signer.address, //TODO: Needs to be the address of the user
       timestamp + 1000
     );
     // the total gas cost is gasPrice * gasLimit
@@ -77,24 +100,26 @@ async function init() {
     const totalGasCostWithBuffer = totalGasCost.mul(3);
 
     // get amounts in
-    const usdcAmountForEth = await contract.getAmountsIn(
+    const usdcAmountForGas = await router.getAmountsIn(
       totalGasCostWithBuffer,
       [ETH_USDC_POOL_ADDRESS],
       [USDC_ADDRESS, WETH_ADDRESS]
     );
-    console.log("usdcAmountForEth", usdcAmountForEth);
+    console.log("usdcAmountForEth", usdcAmountForGas);
 
-    const amountIn = 100 * 10 ** 6 - usdcAmountForEth[0]; // TODO: check if this is correct
+    
 
-    const ethAmountForUsdc = await contract.getAmountsOut(
+    const amountIn = usdcBal - usdcAmountForGas[0]; // TODO: check if this is correct
+
+    const ethAmountForUsdc = await router.getAmountsOut(
       amountIn,
       [ETH_USDC_POOL_ADDRESS],
       [USDC_ADDRESS, WETH_ADDRESS]
     );
-    const amountOut = BigNumber.from(ethAmountForUsdc).mul(70).div(100);
+    const amountOut = BigNumber.from(ethAmountForUsdc[1]).mul(70).div(100);
 
     // TODO: Uncomment eventually
-    // const result = await contract.swapExactTokensForETH(
+    // const result = await router.swapExactTokensForETH(
     //   amountIn,
     //   amountOut,
     //   [ETH_USDC_POOL_ADDRESS],
@@ -123,6 +148,8 @@ async function init() {
         ids: "usd-coin",
         vs_currencies: "usd",
       });
+
+      console.log(data)
 
       if (data["usd-coin"].usd <= 0.85) {
         bot.sendMessage(groupID as string, "USDC is below 0.85");
