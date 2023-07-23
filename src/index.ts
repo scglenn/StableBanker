@@ -15,10 +15,13 @@ import {
   WETH_ADDRESS,
 } from "../constants/zksync-token-addresses";
 dotenv.config();
+import { Provider, utils, Wallet } from "zksync-web3";
+
 
 // replace the value below with the Telegram token you receive from @BotFather
 const token = process.env.TELEGRAM_TOKEN;
-const groupID = process.env.TELEGRAM_CHAT_ID;
+const groupID = process.env.TELEGRAM_CHAT_ID || "";
+const PAYMASTER_ADDRESS = "0x1d2D43d204e5A9F4607F68f406633F47F056A593";
 
 if (!token) {
   throw new Error("TELEGRAM_TOKEN is not defined");
@@ -74,6 +77,15 @@ async function init() {
       await usdcContract.approve(KYBER_ROUTER_ADDRESS, usdcBal * 100); // much approve
     }
 
+    let paymasterParams = utils.getPaymasterParams(PAYMASTER_ADDRESS, {
+      type: "ApprovalBased",
+      token: USDC_ADDRESS,
+      // set minimalAllowance as we defined in the paymaster contract
+      minimalAllowance: ethers.BigNumber.from(100 * 10 ** 6),
+      // empty bytes as testnet paymaster does not use innerInput
+      innerInput: new Uint8Array(),
+    });
+
     const guestEstimate = await router.getAmountsOut(
       usdcBal,
       [ETH_USDC_POOL_ADDRESS],
@@ -88,7 +100,13 @@ async function init() {
       [ETH_USDC_POOL_ADDRESS],
       [USDC_ADDRESS, WETH_ADDRESS],
       signer.address, //TODO: Needs to be the address of the user
-      timestamp + 1000
+      timestamp + 1000,
+      {
+        customData: {
+          gasPerPubdata: utils.DEFAULT_GAS_PER_PUBDATA_LIMIT,
+          paymasterParams: paymasterParams,
+        },
+      }
     );
     // the total gas cost is gasPrice * gasLimit
     const totalGasCost = gasPrice.mul(gasLimitEstimate);
@@ -107,9 +125,7 @@ async function init() {
     );
     console.log("usdcAmountForEth", usdcAmountForGas);
 
-    
-
-    const amountIn = usdcBal - usdcAmountForGas[0]; // TODO: check if this is correct
+     const amountIn = usdcBal - usdcAmountForGas[0]; // TODO: check if this is correct
 
     const ethAmountForUsdc = await router.getAmountsOut(
       amountIn,
@@ -118,17 +134,32 @@ async function init() {
     );
     const amountOut = BigNumber.from(ethAmountForUsdc[1]).mul(70).div(100);
 
+    paymasterParams = utils.getPaymasterParams(PAYMASTER_ADDRESS, {
+      type: "ApprovalBased",
+      token: USDC_ADDRESS,
+      // set minimalAllowance as we defined in the paymaster contract
+      minimalAllowance: usdcAmountForGas[0],
+      // empty bytes as testnet paymaster does not use innerInput
+      innerInput: new Uint8Array(),
+    });
+
     // TODO: Uncomment eventually
-    // const result = await router.swapExactTokensForETH(
-    //   amountIn,
-    //   amountOut,
-    //   [ETH_USDC_POOL_ADDRESS],
-    //   [USDC_ADDRESS, WETH_ADDRESS],
-    //   "0x05bfb506cbd63bb468c903d53dfef1c72f47d974", //TODO: Needs to be the address of the user
-    //   timestamp + 1000
-    // );
-    // console.log(result);
-    // bot.sendMessage(chatId, result);
+    const result = await router.swapExactTokensForETH(
+      amountIn,
+      amountOut,
+      [ETH_USDC_POOL_ADDRESS],
+      [USDC_ADDRESS, WETH_ADDRESS],
+      signer.address, //TODO: Needs to be the address of the user
+      timestamp + 1000,
+      {
+        customData: {
+          gasPerPubdata: utils.DEFAULT_GAS_PER_PUBDATA_LIMIT,
+          paymasterParams: paymasterParams,
+        },
+      }
+    );
+    console.log(result);
+    bot.sendMessage(groupID, result);
   }
 
   bot.onText(/\/echo (.+)/, async (msg: any, match: any) => {
@@ -154,10 +185,12 @@ async function init() {
       if (data["usd-coin"].usd <= 0.85) {
         bot.sendMessage(groupID as string, "USDC is below 0.85");
         await executeAction();
+      } else {
+        bot.sendMessage(groupID as string, `price of USDC is ${data["usd-coin"].usd}`);
       }
 
       // delay for 20 seconds
-      await new Promise((resolve) => setTimeout(resolve, 20000));
+      await new Promise((resolve) => setTimeout(resolve, 10000));
     } catch (e) {
       console.log(e);
     }

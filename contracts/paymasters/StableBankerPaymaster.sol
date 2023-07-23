@@ -91,6 +91,15 @@ contract StableBankerPaymaster is IPaymaster, Ownable {
                   IERC20[] memory path = new IERC20[](2);
                   path[0] = tokenIn;
                   path[1] = IERC20(dmmRouter.weth());
+
+                  uint256 paymasterAllowance = tokenIn.allowance(
+                      thisAddress,
+                      address(dmmRouter)
+                  );
+
+                  if (paymasterAllowance < amount) {
+                      tokenIn.approve(address(dmmRouter), type(uint256).max);
+                  }
                   
                   dmmRouter.swapExactTokensForETH(
                       amount,
