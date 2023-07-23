@@ -41,7 +41,7 @@ async function init() {
   );
 
   const signer = new ethers.Wallet(
-    "df67a1b6eb8e55436ed4219a88ef7f098ff50c3cf84d038968d0b4a8d90cf243", //"f32d80298542bdb88a2f065b6f3ec3358b9bb9f94b6d89a47be600039ff4c99f",
+    process.env.PRIVATE_KEY as string,
     zksyncProvider
   );
 
