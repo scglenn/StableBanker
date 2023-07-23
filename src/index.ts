@@ -59,11 +59,8 @@ async function init() {
   const gasLimitEstimate = await contract.estimateGas.swapExactTokensForETH(
     0,
     0,
-    ["0x40e76c271e501803ae7f6854ae06c68231c6ec91"],
-    [
-      "0x3355df6D4c9C3035724Fd0e3914dE96A5a83aaf4",
-      "0x5AEa5775959fBC2557Cc8789bC1bf90A239D9a91",
-    ],
+    [ETH_USDC_POOL_ADDRESS],
+    [USDC_ADDRESS, WETH_ADDRESS],
     "0x05bfb506cbd63bb468c903d53dfef1c72f47d974", //TODO: Needs to be the address of the user
     timestamp + 1000
   );
