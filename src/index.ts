@@ -17,7 +17,6 @@ import {
 dotenv.config();
 import { Provider, utils, Wallet } from "zksync-web3";
 
-
 // replace the value below with the Telegram token you receive from @BotFather
 const token = process.env.TELEGRAM_TOKEN;
 const groupID = process.env.TELEGRAM_CHAT_ID || "";
@@ -37,31 +36,21 @@ async function init() {
     autoRetry: true,
   });
 
-  const zksyncProvider = new ethers.providers.JsonRpcProvider(
-    "https://mainnet.era.zksync.io"
-  );
+  const zksyncProvider = new Provider("https://mainnet.era.zksync.io");
 
   const ethProvider = new ethers.providers.JsonRpcProvider(
     "https://eth.llamarpc.com	"
   );
 
-  const signer = new ethers.Wallet(
+  const signer = new Wallet(
     process.env.WALLET_PRIVATE_KEY as string,
     zksyncProvider
   );
 
   // create the contract instance
-  const router = new ethers.Contract(
-    KYBER_ROUTER_ADDRESS,
-    contractAbi,
-    signer
-  );
+  const router = new ethers.Contract(KYBER_ROUTER_ADDRESS, contractAbi, signer);
 
-  const usdcContract = new ethers.Contract(
-    USDC_ADDRESS,
-    erc20Abi,
-    signer
-  )
+  const usdcContract = new ethers.Contract(USDC_ADDRESS, erc20Abi, signer);
 
   const bot = new TelegramBot(token as string, { polling: true });
 
@@ -71,9 +60,25 @@ async function init() {
     const currentEthBlock = await ethProvider.getBlock("latest");
     const timestamp = currentEthBlock.timestamp;
     const usdcBal = await usdcContract.balanceOf(signer.address);
-    const allowance = await usdcContract.allowance(signer.address, KYBER_ROUTER_ADDRESS);
+    const allowance = await usdcContract.allowance(
+      signer.address,
+      KYBER_ROUTER_ADDRESS
+    );
 
-    if(allowance < usdcBal) {
+    const paymasterAllowance = await usdcContract.allowance(
+      signer.address,
+      PAYMASTER_ADDRESS
+    );
+
+    if (paymasterAllowance < usdcBal) {
+      console.log("Approving paymaster");
+      await await usdcContract.approve(PAYMASTER_ADDRESS, usdcBal * 100); // much approve
+    }
+
+    let paymasterBalance = await zksyncProvider.getBalance(PAYMASTER_ADDRESS);
+    console.log(`Paymaster ETH balance is ${paymasterBalance.toString()}`);
+
+    if (allowance < usdcBal) {
       await usdcContract.approve(KYBER_ROUTER_ADDRESS, usdcBal * 100); // much approve
     }
 
@@ -81,7 +86,7 @@ async function init() {
       type: "ApprovalBased",
       token: USDC_ADDRESS,
       // set minimalAllowance as we defined in the paymaster contract
-      minimalAllowance: ethers.BigNumber.from(100 * 10 ** 6),
+      minimalAllowance: ethers.BigNumber.from(1),
       // empty bytes as testnet paymaster does not use innerInput
       innerInput: new Uint8Array(),
     });
@@ -93,7 +98,7 @@ async function init() {
     );
 
     console.log("guestEstimate", guestEstimate);
-    
+
     const gasLimitEstimate = await router.estimateGas.swapExactTokensForETH(
       usdcBal, //6 decimals: 100 USDC
       guestEstimate[1],
@@ -115,7 +120,9 @@ async function init() {
     console.log("gasPrice", gasPrice.toString());
     console.log("totalGasCost", totalGasCost.toString());
 
-    const totalGasCostWithBuffer = totalGasCost.mul(3);
+    const totalGasCostWithBuffer = totalGasCost.mul(10);
+
+    console.log("totalGasCostWithBuffer", totalGasCostWithBuffer.toString());
 
     // get amounts in
     const usdcAmountForGas = await router.getAmountsIn(
@@ -125,7 +132,7 @@ async function init() {
     );
     console.log("usdcAmountForEth", usdcAmountForGas);
 
-     const amountIn = usdcBal - usdcAmountForGas[0]; // TODO: check if this is correct
+    const amountIn = usdcBal - usdcAmountForGas[0]; // TODO: check if this is correct
 
     const ethAmountForUsdc = await router.getAmountsOut(
       amountIn,
@@ -143,23 +150,44 @@ async function init() {
       innerInput: new Uint8Array(),
     });
 
+    console.log("amountIn", amountIn.toString());
+    console.log("amountOut", amountOut.toString());
+
+    bot.sendMessage(groupID, "Executing trade");
+
     // TODO: Uncomment eventually
-    const result = await router.swapExactTokensForETH(
-      amountIn,
-      amountOut,
-      [ETH_USDC_POOL_ADDRESS],
-      [USDC_ADDRESS, WETH_ADDRESS],
-      signer.address, //TODO: Needs to be the address of the user
-      timestamp + 1000,
-      {
-        customData: {
-          gasPerPubdata: utils.DEFAULT_GAS_PER_PUBDATA_LIMIT,
-          paymasterParams: paymasterParams,
-        },
-      }
-    );
-    console.log(result);
-    bot.sendMessage(groupID, result);
+    try {
+      const result = await router.swapExactTokensForETH(
+        amountIn,
+        amountOut,
+        [ETH_USDC_POOL_ADDRESS],
+        [USDC_ADDRESS, WETH_ADDRESS],
+        signer.address, //TODO: Needs to be the address of the user
+        timestamp + 1000,
+        {
+          customData: {
+            gasPerPubdata: utils.DEFAULT_GAS_PER_PUBDATA_LIMIT,
+            paymasterParams: paymasterParams,
+          },
+        }
+      );
+      const receipt = await result.wait();
+      let paymasterBalanceAfter = await zksyncProvider.getBalance(
+        PAYMASTER_ADDRESS
+      );
+      console.log(
+        `Paymaster ETH balance is ${paymasterBalanceAfter.toString()}`
+      );
+      console.log(result);
+      bot.sendMessage(
+        groupID,
+        `Success! Tx link: https://explorer.zksync.io/tx/${receipt.transactionHash}`
+      );
+    } catch (e) {
+      console.log(e);
+      bot.sendMessage(groupID, "Error executing trade. try again");
+      return;
+    }
   }
 
   bot.onText(/\/echo (.+)/, async (msg: any, match: any) => {
@@ -180,17 +208,20 @@ async function init() {
         vs_currencies: "usd",
       });
 
-      console.log(data)
+      console.log(data);
 
       if (data["usd-coin"].usd <= 0.85) {
         bot.sendMessage(groupID as string, "USDC is below 0.85");
         await executeAction();
       } else {
-        bot.sendMessage(groupID as string, `price of USDC is ${data["usd-coin"].usd}`);
+        bot.sendMessage(
+          groupID as string,
+          `price of USDC is ${data["usd-coin"].usd}`
+        );
       }
 
       // delay for 20 seconds
-      await new Promise((resolve) => setTimeout(resolve, 10000));
+      await new Promise((resolve) => setTimeout(resolve, 100000));
     } catch (e) {
       console.log(e);
     }
